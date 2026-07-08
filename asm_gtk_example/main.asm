@@ -43,30 +43,44 @@ section .text
 
 global main
 
-
+; =============================================================================
+;	                     BUTTON_ACTION FUNCTION
+; =============================================================================
 button_action:
 	push	rbp
 	mov	rbp, rsp
 
+
 	pop	rbp
 	ret
 
-
+; =============================================================================
+;	                   WINDOW_ACTIVATION FUNCTION
+; =============================================================================
 window_activation:
 	push	rbp
 	mov	rbp, rsp
+	sub	rsp,16
+
+	mov	[rsp + 0], rdi
+	mov	[rsp + 8], rsi
 
 	call gtk_application_window_new WRT ..plt
-	mov	rdi, [app_ptr]
+	mov	rdi, rax
 	call gtk_window_present WRT ..plt
+
+	mov	rsp, rbp
 	pop	rbp
 	ret
 
-
+; =============================================================================
+; 				   MAIN FUNCTION
+; =============================================================================
 main:
-	push rsp
-	push rdi
-	push rsi
+	push rbp
+	mov rbp, rsp
+
+
 	get_window_ptr:
 		lea	rdi, [app_id]
 		xor	rsi,rsi
@@ -78,23 +92,21 @@ main:
 		lea	rsi,[activate]
 		lea	rdx,[window_activation]
 		xor	rcx,rcx
-		xor	r10,r10
 		xor	r8,r8
 		xor	r9,r9
 		call	g_signal_connect_data WRT ..plt
 
-		pop rdi
-		pop rsi
 
-		mov rdx,rsi
-		mov rsi,rdi
+		xor rdx,rdx
+		xor rsi,rsi
 		mov rdi,[app_ptr]
-		call g_application_run
+		call g_application_run WRT ..plt
 	gtk_end:
-		mov	rdi,app_ptr
+		mov	rdi,[app_ptr]
 		call	g_object_unref	WRT ..plt
 
 	end:
 		xor	rax,rax
-		pop	rsp
+		mov	rsp, rbp
+		pop	rbp
 		ret

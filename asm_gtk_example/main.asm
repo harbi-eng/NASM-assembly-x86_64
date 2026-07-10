@@ -3,7 +3,7 @@ default rel
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;	inclues	      ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;	inclueds	      ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 extern gtk_application_new
 extern g_signal_connect_data
@@ -19,15 +19,17 @@ extern gtk_set_default_size
 extern gtk_widget_set_halign
 extern gtk_widget_set_valign
 extern gtk_button_new_with_label
+;;;;;;;;;;;;;;;;;;;;;;;;;;      includes       ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;      inclues       ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;;;;;;;;;;;;;;;;;;;;;;;         data        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 section .rodata
 
-app_id:		db	"org.gtk.minimal",0
-activate:	db	"activate",0
-window_title:	db	"welcome",0
-button_lable:	db	"welcome to nasm",0
+app_id:			db	"org.gtk.minimal",0
+activate:		db	"activate",0
+window_title:		db	"welcome",0
+button_action_id:	db	"clicked",0
+button_lable:		db	10,"WELCOM TO NASM!!!!",10,0
 
 section .bss
 
@@ -37,6 +39,8 @@ button_ptr	RESQ 1
 
 section .data
 
+GTK_ALIGN_CENTER	equ	3
+;;;;;;;;;;;;;;;;;;;;;;;;;	 data 	     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 section .text
 
@@ -47,44 +51,93 @@ global main
 ;	                     BUTTON_ACTION FUNCTION
 ; =============================================================================
 button_action:
-	push	rbp
-	mov	rbp, rsp
 
+	button_action_stack_setup:
+        	push    rbp
+                mov     rbp, rsp
+                sub     rsp, 16
+                mov     [rsp + 0], rdi
+                mov     [rsp + 8], rsi
 
-	pop	rbp
-	ret
+	button_print:
+		lea	rdi, [button_lable]
+		call g_print WRT ..plt
+
+	button_action_return:
+		mov	rsp, rbp
+		pop	rbp
+		ret
 
 ; =============================================================================
 ;	                   WINDOW_ACTIVATION FUNCTION
 ; =============================================================================
 window_activation:
-	push	rbp
-	mov	rbp, rsp
-	sub	rsp,16
 
-	mov	[rsp + 0], rdi
-	mov	[rsp + 8], rsi
+	window_activation_stack_setup:
+		push	rbp
+		mov	rbp, rsp
+		sub	rsp, 16
+		mov	[rsp + 0], rdi
+		mov	[rsp + 8], rsi
 
-	call gtk_application_window_new WRT ..plt
-	mov	rdi, rax
-	call gtk_window_present WRT ..plt
+	create_new_window:
+		call gtk_application_window_new WRT ..plt
+		mov	[window_ptr], rax
 
-	mov	rsp, rbp
-	pop	rbp
-	ret
+	set_window_title:
+		mov	rdi, rax
+		lea	rsi, [window_title]
+		call 	gtk_window_set_title WRT ..plt
+
+	creat_new_button:
+		lea	rdi, [button_lable]
+		call	gtk_button_new_with_label WRT ..plt
+		mov	[button_ptr], rax
+
+	align_button_location:
+		mov	rdi, rax
+		mov	rsi, GTK_ALIGN_CENTER
+		call	gtk_widget_set_valign WRT ..plt
+		mov	rdi, [button_ptr]
+		mov	rsi, GTK_ALIGN_CENTER
+		call	gtk_widget_set_halign WRT ..plt
+
+	connect_action_to_button:
+                mov     rdi,[button_ptr]
+                lea     rsi,[button_action_id]
+                lea     rdx,[button_action]
+                xor     rcx,rcx
+                xor     r8,r8
+                xor     r9,r9
+                call    g_signal_connect_data WRT ..plt
+
+	connect_button_to_window:
+		mov	rdi, [window_ptr]
+		mov	rsi, [button_ptr]
+		call	gtk_window_set_child
+
+	gtk_present:
+		mov	rdi, [window_ptr]
+		call gtk_window_present WRT ..plt
+
+	window_activation_return:
+		mov	rsp, rbp
+		pop	rbp
+		ret
 
 ; =============================================================================
 ; 				   MAIN FUNCTION
 ; =============================================================================
 main:
-	push rbp
-	mov rbp, rsp
 
+	main_stack_setup:
+		push rbp
+		mov rbp, rsp
 
-	get_window_ptr:
+	get_window_pointer:
 		lea	rdi, [app_id]
 		xor	rsi,rsi
-		call gtk_application_new WRT ..plt
+		call	gtk_application_new WRT ..plt
 		mov	[app_ptr], rax
 
 	gtk_signal_connect:
@@ -96,16 +149,17 @@ main:
 		xor	r9,r9
 		call	g_signal_connect_data WRT ..plt
 
-
+	gtk_run_window:
 		xor rdx,rdx
 		xor rsi,rsi
 		mov rdi,[app_ptr]
 		call g_application_run WRT ..plt
-	gtk_end:
+
+	handle_close_window:
 		mov	rdi,[app_ptr]
 		call	g_object_unref	WRT ..plt
 
-	end:
+	main_return:
 		xor	rax,rax
 		mov	rsp, rbp
 		pop	rbp
